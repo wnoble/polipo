@@ -370,7 +370,11 @@ urlDirname(char *buf, int n, const char *url, int len)
         return -1;
 
     if(diskCacheRoot == NULL ||
-       diskCacheRoot->length <= 0 || diskCacheRoot->string[0] != '/')
+       diskCacheRoot->length <= 0
+#ifndef WIN32
+       || diskCacheRoot->string[0] != '/'
+#endif
+       )
         return -1;
 
     if(n <= diskCacheRoot->length)
@@ -1445,8 +1449,12 @@ destroyDiskEntry(ObjectPtr object, int d)
         entry = object->disk_entry;
         if(entry == NULL || entry == &negativeEntry)
             return 0;
-        if(diskCacheWriteoutOnClose > 0)
+        if(diskCacheWriteoutOnClose > 0) {
             reallyWriteoutToDisk(object, -1, diskCacheWriteoutOnClose);
+            entry = object->disk_entry;
+            if(entry == NULL || entry == &negativeEntry)
+                return 0;
+        }
     }
  again:
     rc = close(entry->fd);
@@ -1936,7 +1944,7 @@ processObject(DiskObjectPtr dobjects, char *filename, struct stat *sb)
 
     dobject = readDiskObject((char*)filename, sb);
     if(dobject == NULL)
-        return 0;
+        return dobjects;
 
     if(!dobjects ||
        (c = strcmp(dobject->location, dobjects->location)) <= 0) {
